@@ -438,10 +438,13 @@ class CollectionTest extends TestCase
             'test' => 'foo',
         ]);
 
+        $lastInsertId = $this->db->lastInsertId();
+
         $this->assertEquals($this->db->count(), 4);
         $data = $this->db->where('test', 'foo')->first();
         $this->assertEquals(array_keys($data), ['_id', 'test']);
         $this->assertEquals($data['test'], 'foo');
+        $this->assertEquals($data['_id'], $lastInsertId);
     }
 
     public function testInsertWithTransaction()
@@ -452,10 +455,13 @@ class CollectionTest extends TestCase
             ]);
         });
 
+        $lastInsertId = $this->db->lastInsertId();
+
         $this->assertEquals($this->db->count(), 4);
         $data = $this->db->where('test_transaction', 'transaction')->first();
         $this->assertEquals(array_keys($data), ['_id', 'test_transaction']);
         $this->assertEquals($data['test_transaction'], 'transaction');
+        $this->assertEquals($data['_id'], $lastInsertId);
     }
 
     public function testInserts()
