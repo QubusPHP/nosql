@@ -71,6 +71,9 @@ class Collection
     /** @var array $macros */
     protected array $macros = [];
 
+    /** @var string|int $lastInsertId */
+    protected $lastInsertId = null;
+
     /**
      * @param string $filepath
      */
@@ -400,6 +403,8 @@ class Collection
         $data = $this->loadData();
         $key = $new[static::KEY_ID] ?? $this->generateKey();
 
+        $this->lastInsertId = $key;
+
         $newExtra = new ArrayExtra([]);
         $newExtra->merge($new);
 
@@ -555,6 +560,17 @@ class Collection
             return file_put_contents($filepath, $json, LOCK_EX);
         }
     }
+
+    /**
+     * Returns the last insert id from the current document being acted upon.
+     *
+     * @return string|int The last insert id.
+     */
+    public function lastInsertId()
+    {
+        return $this->lastInsertId;
+    }
+
 
     public function __call($method, $args)
     {
