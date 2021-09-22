@@ -4,7 +4,8 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker
+ * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
  *
  * @since      1.0.0
@@ -22,7 +23,7 @@ class LimiterPipe implements Pipe
     protected int $limit = 0;
     protected int $offset = 0;
 
-    public function setLimit($limit)
+    public function setLimit(int $limit)
     {
         $this->limit = $limit;
         return $this;
@@ -35,7 +36,7 @@ class LimiterPipe implements Pipe
         return $this;
     }
 
-    public function process(array $data)
+    public function process(array $data): array
     {
         $limit = (int) $this->limit ?: count($data);
         $offset = (int) $this->offset;

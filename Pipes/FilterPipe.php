@@ -4,7 +4,8 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker
+ * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
  *
  * @since      1.0.0
@@ -25,7 +26,7 @@ class FilterPipe implements Pipe
     /** @var array $filters */
     protected array $filters = [];
 
-    public function process(array $data)
+    public function process(array $data): array
     {
         $filters = $this->filters;
         return array_filter($data, function ($row) use ($filters) {
@@ -47,7 +48,7 @@ class FilterPipe implements Pipe
         });
     }
 
-    public function add(Closure $filter, $type = 'AND')
+    public function add(Closure $filter, $type = 'AND'): void
     {
         $this->filters[] = [$filter, strtolower($type)];
     }

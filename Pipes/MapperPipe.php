@@ -4,7 +4,8 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker
+ * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
  *
  * @since      1.0.0
@@ -23,7 +24,7 @@ class MapperPipe implements Pipe
     /** @var array $mappers */
     protected array $mappers = [];
 
-    public function process(array $data)
+    public function process(array $data): array
     {
         foreach ($this->mappers as $mapper) {
             $data = array_map($mapper, $data);
@@ -32,7 +33,7 @@ class MapperPipe implements Pipe
         return $data;
     }
 
-    public function add(Closure $mapper)
+    public function add(Closure $mapper): void
     {
         $this->mappers[] = $mapper;
     }
