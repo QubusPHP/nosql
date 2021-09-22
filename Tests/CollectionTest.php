@@ -4,7 +4,8 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker
+ * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
  *
  * @since      1.0.0
@@ -29,6 +30,7 @@ use function substr;
 use function unlink;
 
 use const JSON_PRETTY_PRINT;
+use PHPUnit\Framework\Assert;
 
 class CollectionTest extends TestCase
 {
@@ -58,7 +60,7 @@ class CollectionTest extends TestCase
         ],
     ];
 
-    public function setUp()
+    public function setUp(): void
     {
         $this->filepath = __DIR__ . '/db/data';
         // initialize data
@@ -70,13 +72,13 @@ class CollectionTest extends TestCase
     public function testAll()
     {
         $result = $this->db->all();
-        $this->assertEquals($result, array_values($this->dummyData));
+        Assert::assertEquals($result, array_values($this->dummyData));
     }
 
     public function testFind()
     {
         $result = $this->db->find('58745c19b4c51');
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             "_id"   => "58745c19b4c51",
             "email" => "b@site.com",
             "name"  => "B",
@@ -87,7 +89,7 @@ class CollectionTest extends TestCase
     public function testFirst()
     {
         $result = $this->db->query()->first();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             "_id"   => "58745c13ad585",
             "email" => "a@site.com",
             "name"  => "A",
@@ -97,7 +99,7 @@ class CollectionTest extends TestCase
 
     public function testGetAll()
     {
-        $this->assertEquals($this->db->query()->get(), array_values($this->dummyData));
+        Assert::assertEquals($this->db->query()->get(), array_values($this->dummyData));
     }
 
     public function testFilter()
@@ -106,7 +108,7 @@ class CollectionTest extends TestCase
             return $row['score'] > 90;
         })->get();
 
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c1ef0b13",
                 "email" => "c@site.com",
@@ -124,7 +126,7 @@ class CollectionTest extends TestCase
             ];
         })->get();
 
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             ["x" => 80],
             ["x" => 76],
             ["x" => 95],
@@ -134,7 +136,7 @@ class CollectionTest extends TestCase
     public function testGetSomeColumns()
     {
         $result = $this->db->query()->get(['email', 'name']);
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "email" => "a@site.com",
                 "name"  => "A",
@@ -153,7 +155,7 @@ class CollectionTest extends TestCase
     public function testSortAscending()
     {
         $result = $this->db->query()->sortBy('score', 'asc')->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -178,7 +180,7 @@ class CollectionTest extends TestCase
     public function testSortDescending()
     {
         $result = $this->db->query()->sortBy('score', 'desc')->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c1ef0b13",
                 "email" => "c@site.com",
@@ -203,7 +205,7 @@ class CollectionTest extends TestCase
     public function testSkip()
     {
         $result = $this->db->query()->skip(1)->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -222,7 +224,7 @@ class CollectionTest extends TestCase
     public function testTake()
     {
         $result = $this->db->query()->take(1, 1)->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -234,38 +236,38 @@ class CollectionTest extends TestCase
 
     public function testCount()
     {
-        $this->assertEquals($this->db->count(), 3);
+        Assert::assertEquals($this->db->count(), 3);
     }
 
     public function testSum()
     {
-        $this->assertEquals($this->db->sum('score'), 76 + 80 + 95);
+        Assert::assertEquals($this->db->sum('score'), 76 + 80 + 95);
     }
 
     public function testAvg()
     {
-        $this->assertEquals($this->db->avg('score'), (76 + 80 + 95) / 3);
+        Assert::assertEquals($this->db->avg('score'), (76 + 80 + 95) / 3);
     }
 
     public function testMin()
     {
-        $this->assertEquals($this->db->min('score'), 76);
+        Assert::assertEquals($this->db->min('score'), 76);
     }
 
     public function testMax()
     {
-        $this->assertEquals($this->db->max('score'), 95);
+        Assert::assertEquals($this->db->max('score'), 95);
     }
 
     public function testLists()
     {
-        $this->assertEquals($this->db->lists('score'), [80, 76, 95]);
+        Assert::assertEquals($this->db->lists('score'), [80, 76, 95]);
     }
 
     public function testListsWithKey()
     {
         $result = $this->db->lists('score', 'email');
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             'a@site.com' => 80,
             'b@site.com' => 76,
             'c@site.com' => 95,
@@ -275,7 +277,7 @@ class CollectionTest extends TestCase
     public function testGetWhereEquals()
     {
         $result = $this->db->where('name', 'C')->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c1ef0b13",
                 "email" => "c@site.com",
@@ -288,7 +290,7 @@ class CollectionTest extends TestCase
     public function testGetOrWhere()
     {
         $result = $this->db->where('name', 'C')->orWhere('name', 'B')->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -307,7 +309,7 @@ class CollectionTest extends TestCase
     public function testGetWhereBiggerThan()
     {
         $result = $this->db->where('score', '>', 80)->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c1ef0b13",
                 "email" => "c@site.com",
@@ -320,7 +322,7 @@ class CollectionTest extends TestCase
     public function testGetWhereBiggerThanEquals()
     {
         $result = $this->db->where('score', '>=', 80)->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c13ad585",
                 "email" => "a@site.com",
@@ -339,7 +341,7 @@ class CollectionTest extends TestCase
     public function testGetWhereLowerThan()
     {
         $result = $this->db->where('score', '<', 80)->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -352,7 +354,7 @@ class CollectionTest extends TestCase
     public function testGetWhereLowerThanEquals()
     {
         $result = $this->db->where('score', '<=', 80)->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c13ad585",
                 "email" => "a@site.com",
@@ -371,7 +373,7 @@ class CollectionTest extends TestCase
     public function testGetWhereIn()
     {
         $result = $this->db->where('score', 'in', [80])->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c13ad585",
                 "email" => "a@site.com",
@@ -384,7 +386,7 @@ class CollectionTest extends TestCase
     public function testGetWhereNotIn()
     {
         $result = $this->db->where('score', 'not in', [80])->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -403,7 +405,7 @@ class CollectionTest extends TestCase
     public function testGetWhereMatch()
     {
         $result = $this->db->where('email', 'match', '/^b@/')->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -416,7 +418,7 @@ class CollectionTest extends TestCase
     public function testGetWhereBetween()
     {
         $result = $this->db->where('score', 'between', [80, 95])->get();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             [
                 "_id"   => "58745c13ad585",
                 "email" => "a@site.com",
@@ -440,11 +442,11 @@ class CollectionTest extends TestCase
 
         $lastInsertId = $this->db->lastInsertId();
 
-        $this->assertEquals($this->db->count(), 4);
+        Assert::assertEquals($this->db->count(), 4);
         $data = $this->db->where('test', 'foo')->first();
-        $this->assertEquals(array_keys($data), ['_id', 'test']);
-        $this->assertEquals($data['test'], 'foo');
-        $this->assertEquals($data['_id'], $lastInsertId);
+        Assert::assertEquals(array_keys($data), ['_id', 'test']);
+        Assert::assertEquals($data['test'], 'foo');
+        Assert::assertEquals($data['_id'], $lastInsertId);
     }
 
     public function testInsertWithTransaction()
@@ -457,11 +459,11 @@ class CollectionTest extends TestCase
 
         $lastInsertId = $this->db->lastInsertId();
 
-        $this->assertEquals($this->db->count(), 4);
+        Assert::assertEquals($this->db->count(), 4);
         $data = $this->db->where('test_transaction', 'transaction')->first();
-        $this->assertEquals(array_keys($data), ['_id', 'test_transaction']);
-        $this->assertEquals($data['test_transaction'], 'transaction');
-        $this->assertEquals($data['_id'], $lastInsertId);
+        Assert::assertEquals(array_keys($data), ['_id', 'test_transaction']);
+        Assert::assertEquals($data['test_transaction'], 'transaction');
+        Assert::assertEquals($data['_id'], $lastInsertId);
     }
 
     public function testInserts()
@@ -472,7 +474,7 @@ class CollectionTest extends TestCase
             ['test' => 'baz'],
         ]);
 
-        $this->assertEquals($this->db->count(), 6);
+        Assert::assertEquals($this->db->count(), 6);
     }
 
     public function testUpdate()
@@ -481,7 +483,7 @@ class CollectionTest extends TestCase
             'score' => 90,
         ]);
 
-        $this->assertEquals($this->db->all(), [
+        Assert::assertEquals($this->db->all(), [
             [
                 "_id"   => "58745c13ad585",
                 "email" => "a@site.com",
@@ -511,7 +513,7 @@ class CollectionTest extends TestCase
             ];
         })->save();
 
-        $this->assertEquals($this->db->all(), [
+        Assert::assertEquals($this->db->all(), [
             [
                 "_id" => "58745c13ad585",
                 "x"   => 80,
@@ -532,7 +534,7 @@ class CollectionTest extends TestCase
     public function testDelete()
     {
         $this->db->where('score', '>=', 80)->delete();
-        $this->assertEquals($this->db->all(), [
+        Assert::assertEquals($this->db->all(), [
             [
                 "_id"   => "58745c19b4c51",
                 "email" => "b@site.com",
@@ -545,7 +547,7 @@ class CollectionTest extends TestCase
     public function testWithOne()
     {
         $result = $this->db->withOne($this->db, 'other', 'email', '=', 'email')->first();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             "_id"   => "58745c13ad585",
             "email" => "a@site.com",
             "name"  => "A",
@@ -562,7 +564,7 @@ class CollectionTest extends TestCase
     public function testWithMany()
     {
         $result = $this->db->withMany($this->db, 'other', 'email', '=', 'email')->first();
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             "_id"   => "58745c13ad585",
             "email" => "a@site.com",
             "name"  => "A",
@@ -585,7 +587,7 @@ class CollectionTest extends TestCase
             'other.email:other_email',
         ]);
 
-        $this->assertEquals($result, [
+        Assert::assertEquals($result, [
             "email"       => "a@site.com",
             "other_email" => "a@site.com",
         ]);
@@ -601,7 +603,7 @@ class CollectionTest extends TestCase
             'label' => 'Test more entropy',
         ]);
 
-        $this->assertEquals(strlen($data['_id']), 23);
+        Assert::assertEquals(strlen($data['_id']), 23);
     }
 
     public function testKeyPrefix()
@@ -614,7 +616,7 @@ class CollectionTest extends TestCase
             'label' => 'Test key prefix',
         ]);
 
-        $this->assertEquals(substr($data['_id'], 0, 6), "foobar");
+        Assert::assertEquals(substr($data['_id'], 0, 6), "foobar");
     }
 
     public function testMacro()
@@ -651,9 +653,9 @@ class CollectionTest extends TestCase
             '2' => 'two',
         ])->get();
 
-        $this->assertEquals($result[0]['number'], 'one');
-        $this->assertEquals($result[1]['number'], 'two');
-        $this->assertEquals($result[9]['number'], 'one0');
+        Assert::assertEquals($result[0]['number'], 'one');
+        Assert::assertEquals($result[1]['number'], 'two');
+        Assert::assertEquals($result[9]['number'], 'one0');
 
         // Use macro in query chain
         $result2 = $db->query()->replace('number', [
@@ -661,9 +663,9 @@ class CollectionTest extends TestCase
             '2' => 'two',
         ])->get();
 
-        $this->assertEquals($result2[0]['number'], 'one');
-        $this->assertEquals($result2[1]['number'], 'two');
-        $this->assertEquals($result2[9]['number'], 'one0');
+        Assert::assertEquals($result2[0]['number'], 'one');
+        Assert::assertEquals($result2[1]['number'], 'two');
+        Assert::assertEquals($result2[9]['number'], 'one0');
     }
 
     public function testGlobalMacro()
@@ -696,12 +698,12 @@ class CollectionTest extends TestCase
             '2' => 'two',
         ])->get();
 
-        $this->assertEquals($result[0]['number'], 'one');
-        $this->assertEquals($result[1]['number'], 'two');
-        $this->assertEquals($result[9]['number'], 'one0');
+        Assert::assertEquals($result[0]['number'], 'one');
+        Assert::assertEquals($result[1]['number'], 'two');
+        Assert::assertEquals($result[9]['number'], 'one0');
     }
 
-    public function tearDown()
+    public function tearDown(): void
     {
         unlink($this->filepath . '.json');
     }
