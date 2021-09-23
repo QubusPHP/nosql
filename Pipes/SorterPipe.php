@@ -4,7 +4,8 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker
+ * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
  *
  * @since      1.0.0
@@ -24,24 +25,22 @@ use function strtolower;
 
 class SorterPipe implements Pipe
 {
-    /** @var Closure $value */
-    protected $value;
+    protected Closure $value;
 
-    /** @var string $ascending */
-    protected $ascending;
+    protected string $ascending;
 
-    public function __construct(Closure $value, $ascending = 'asc')
+    public function __construct(Closure $value, string $ascending = 'asc')
     {
         $this->value = $value;
         $this->ascending = strtolower($ascending);
     }
 
-    public function process(array $data)
+    public function process(array $data): array
     {
         return $this->sort($data, $this->value, $this->ascending);
     }
 
-    public function sort($array, $value, $ascending)
+    public function sort(array $array, Closure $value, string $ascending): array
     {
         $values = array_map(function ($row) use ($value) {
             return $value($row);
