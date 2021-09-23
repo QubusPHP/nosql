@@ -113,6 +113,11 @@
         <exclude name="SlevomatCodingStandard.ControlStructures.DisallowYodaComparison.DisallowedYodaComparison"/>
     </rule>
 
+    <!-- @author and @copyright Annotations can be used. -->
+    <rule ref="SlevomatCodingStandard.Commenting.ForbiddenAnnotations">
+        <exclude name="SlevomatCodingStandard.Commenting.ForbiddenAnnotations"/>
+    </rule>
+
     <!-- File names should be lowercased and class names should be uppercase. -->
     <rule ref="Generic.Files.LowercasedFilename">
         <exclude name="Generic.Files.LowercasedFilename.NotFound"/>
