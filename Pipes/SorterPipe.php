@@ -25,10 +25,8 @@ use function strtolower;
 
 class SorterPipe implements Pipe
 {
-    /** @var Closure $value */
     protected Closure $value;
 
-    /** @var string $ascending */
     protected string $ascending;
 
     public function __construct(Closure $value, string $ascending = 'asc')

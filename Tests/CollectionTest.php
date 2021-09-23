@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 namespace Qubus\Tests\NoSql;
 
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 use Qubus\NoSql\Collection;
 use Qubus\NoSql\DB;
@@ -30,7 +31,6 @@ use function substr;
 use function unlink;
 
 use const JSON_PRETTY_PRINT;
-use PHPUnit\Framework\Assert;
 
 class CollectionTest extends TestCase
 {
@@ -453,7 +453,7 @@ class CollectionTest extends TestCase
     {
         $this->db->transaction(function (Collection $db) {
             $db->insert([
-                'test_transaction' => 'transaction'
+                'test_transaction' => 'transaction',
             ]);
         });
 
