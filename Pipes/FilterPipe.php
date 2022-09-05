@@ -26,30 +26,30 @@ class FilterPipe implements Pipe
     /** @var array $filters */
     protected array $filters = [];
 
+    /**
+     * @param array $data
+     * @return array
+     * @throws TypeException
+     */
     public function process(array $data): array
     {
         $filters = $this->filters;
-        return array_filter($data, function ($row) use ($filters) {
+        return array_filter(array: $data, callback: function ($row) use ($filters) {
             $result = true;
             foreach ($filters as $i => $filter) {
                 [$filter, $type] = $filter;
-                switch ($type) {
-                    case 'and':
-                        $result = $result && $filter($row);
-                        break;
-                    case 'or':
-                        $result = $result || $filter($row);
-                        break;
-                    default:
-                        throw new TypeException("Filter type must be 'AND' or 'OR'.", 1);
-                }
+                $result = match ($type) {
+                    'and' => $result && $filter($row),
+                    'or' => $result || $filter($row),
+                    default => throw new TypeException(message: "Filter type must be 'AND' or 'OR'.", code: 1),
+                };
             }
             return $result;
         });
     }
 
-    public function add(Closure $filter, $type = 'AND'): void
+    public function add(Closure $filter, string $type = 'AND'): void
     {
-        $this->filters[] = [$filter, strtolower($type)];
+        $this->filters[] = [$filter, strtolower(string: $type)];
     }
 }

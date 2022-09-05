@@ -15,8 +15,8 @@
         }
     ],
     "require": {
-        "php": "^8.0",
-        "qubus/exception": "^1.2"
+        "php": ">=8.1",
+        "qubus/exception": "^2.0"
     },
     "require-dev": {
         "laminas/laminas-coding-standard": "^2.0",
@@ -41,6 +41,9 @@
     },
     "config": {
         "optimize-autoloader": true,
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
     }
 }

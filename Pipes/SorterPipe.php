@@ -32,19 +32,19 @@ class SorterPipe implements Pipe
     public function __construct(Closure $value, string $ascending = 'asc')
     {
         $this->value = $value;
-        $this->ascending = strtolower($ascending);
+        $this->ascending = strtolower(string: $ascending);
     }
 
     public function process(array $data): array
     {
-        return $this->sort($data, $this->value, $this->ascending);
+        return $this->sort(array: $data, value: $this->value, ascending: $this->ascending);
     }
 
     public function sort(array $array, Closure $value, string $ascending): array
     {
-        $values = array_map(function ($row) use ($value) {
+        $values = array_map(callback: function ($row) use ($value) {
             return $value($row);
-        }, $array);
+        }, array: $array);
 
         switch ($ascending) {
             case 'asc':
@@ -55,7 +55,7 @@ class SorterPipe implements Pipe
                 break;
         }
 
-        $keys = array_keys($values);
+        $keys = array_keys(array: $values);
 
         $result = [];
         foreach ($keys as $key) {

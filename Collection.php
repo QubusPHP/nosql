@@ -58,8 +58,7 @@ class Collection
 
     protected ?string $filepath = null;
 
-    /** @var mixed $resolver */
-    protected $resolver;
+    protected $resolver = null;
 
     /** @var array $events */
     protected array $events = [];
@@ -67,18 +66,18 @@ class Collection
     protected bool $transactionMode = false;
 
     /** @var array|null $transactionData */
-    protected $transactionData;
+    protected ?array $transactionData = null;
 
     /** @var array $macros */
     protected array $macros = [];
 
-    /** @var string|int $lastInsertId */
-    protected $lastInsertId = null;
+    /** @var string|int|null $lastInsertId */
+    protected string|int|null $lastInsertId;
 
-    /**
-     * @param string $filepath
-     */
-    public function __construct($filepath, array $options = [])
+    /** @var array|bool[]|int[]|string[] */
+    private array $options;
+
+    public function __construct(string $filepath, array $options = [])
     {
         $this->options = array_merge([
             'file_extension' => '.json',
@@ -93,7 +92,7 @@ class Collection
     /**
      * @param string $name Macro name.
      */
-    public function macro($name, callable $callback): void
+    public function macro(string $name, callable $callback): void
     {
         $this->macros[$name] = $callback;
     }
@@ -103,27 +102,25 @@ class Collection
      *
      * @param string $name Macro name.
      */
-    public function hasMacro($name): bool
+    public function hasMacro(string $name): bool
     {
-        return array_key_exists($name, $this->macros);
+        return array_key_exists(key: $name, array: $this->macros);
     }
 
     /**
      * Return macro.
-     *
-     * @param string $name
      */
-    public function getMacro($name)
+    public function getMacro(string $name)
     {
         return $this->hasMacro($name) ? $this->macros[$name] : null;
     }
 
-    public function getKeyId()
+    public function getKeyId(): string
     {
         return static::KEY_ID;
     }
 
-    public function getKeyOldId()
+    public function getKeyOldId(): string
     {
         return static::KEY_OLD_ID;
     }
@@ -133,24 +130,27 @@ class Collection
         return true === $this->transactionMode;
     }
 
-    public function begin()
+    public function begin(): void
     {
         $this->transactionMode = true;
     }
 
-    public function commit()
+    public function commit(): bool|int
     {
         $this->transactionMode = false;
-        return $this->save($this->transactionData);
+        return $this->save(data: $this->transactionData);
     }
 
-    public function rollback()
+    public function rollback(): void
     {
         $this->transactionMode = false;
         $this->transactionData = null;
     }
 
-    public function transaction(callable $callback, $that = null, $default = null)
+    /**
+     * @throws Exception
+     */
+    public function transaction(callable $callback, mixed $that = null, mixed $default = null): mixed
     {
         if ($that === null) {
             $that = $this;
@@ -175,7 +175,7 @@ class Collection
         return $result;
     }
 
-    public function truncate()
+    public function truncate(): bool|int
     {
         return $this->persists([]);
     }
@@ -183,7 +183,7 @@ class Collection
     /**
      * @param string $event Event name.
      */
-    public function on($event, callable $callback): void
+    public function on(string $event, callable $callback): void
     {
         if (! isset($this->events[$event])) {
             $this->events[$event] = [];
@@ -193,30 +193,33 @@ class Collection
     }
 
     /**
-     * @param sring $event Event name.
+     * @param string $event Event name.
      */
-    protected function trigger($event, array &$args): void
+    protected function trigger(string $event, array &$args): void
     {
         $events = $this->events[$event] ?? [];
         foreach ($events as $callback) {
-            call_user_func_array($callback, $args);
+            call_user_func_array(callback: $callback, args: $args);
         }
     }
 
-    public function loadData()
+    /**
+     * @throws InvalidJsonException
+     */
+    public function loadData(): mixed
     {
         if ($this->isModeTransaction() && ! empty($this->transactionData)) {
             return $this->transactionData;
         }
 
-        if (! file_exists($this->filepath)) {
+        if (! file_exists(filename: $this->filepath)) {
             $data = [];
         } else {
-            $content = file_get_contents($this->filepath);
-            $data = json_decode($content, true);
+            $content = file_get_contents(filename: $this->filepath);
+            $data = json_decode(json: $content, associative: true);
             if (null === $data) {
                 throw new InvalidJsonException(
-                    sprintf(
+                    message: sprintf(
                         'Failed to load data. File `%s` contains invalid JSON format.',
                         $this->filepath
                     )
@@ -227,106 +230,118 @@ class Collection
         return $data;
     }
 
-    public function setResolver(callable $resolver)
+    public function setResolver(callable $resolver): void
     {
         $this->resolver = $resolver;
     }
 
-    public function getResolver()
+    public function getResolver(): mixed
     {
         return $this->resolver;
     }
 
-    public function query()
+    public function query(): Query
     {
-        return new Query($this);
+        return new Query(collection: $this);
     }
 
-    public function where($key)
+    public function where($key): mixed
     {
-        return call_user_func_array([$this->query(), 'where'], func_get_args());
+        return call_user_func_array(callback: [$this->query(), 'where'], args: func_get_args());
     }
 
-    public function filter(Closure $closure)
+    public function filter(Closure $closure): mixed
     {
         return $this->query()->filter($closure);
     }
 
-    public function map(Closure $mapper)
+    public function map(Closure $mapper): Query
     {
-        return $this->query()->map($mapper);
+        return $this->query()->map(mapper: $mapper);
     }
 
     /**
-     * @param string $key
+     * @throws TypeException
      */
-    public function sortBy($key, $asc = 'asc')
+    public function sortBy(string $key, string $asc = 'asc'): Query
     {
-        return $this->query()->sortBy($key, $asc);
+        return $this->query()->sortBy(key: $key, asc: $asc);
     }
 
-    public function sort(Closure $value)
+    public function sort(Closure $value): mixed
     {
         return $this->query()->sort($value);
     }
 
-    public function skip(int $offset)
+    public function skip(int $offset): Query
     {
-        return $this->query()->skip($offset);
+        return $this->query()->skip(offset: $offset);
     }
 
-    public function take(int $limit, int $offset = 0)
+    public function take(int $limit, int $offset = 0): Query
     {
-        return $this->query()->take($limit, $offset);
+        return $this->query()->take(limit: $limit, offset: $offset);
     }
 
-    public function all()
+    /**
+     * @throws InvalidJsonException
+     */
+    public function all(): array
     {
         return array_values($this->loadData());
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function find($id)
     {
         $data = $this->loadData();
         return $data[$id] ?? null;
     }
 
-    public function lists($key, $resultKey = null)
+    public function lists($key, $resultKey = null): array
     {
-        return $this->query()->lists($key, $resultKey);
+        return $this->query()->lists(key: $key, resultKey: $resultKey);
     }
 
-    public function sum($key)
+    public function sum($key): mixed
     {
-        return $this->query()->sum($key);
+        return $this->query()->sum(key: $key);
     }
 
-    public function count()
+    public function count(): ?int
     {
         return $this->query()->count();
     }
 
-    public function avg($key)
+    public function avg($key): float|int
     {
         return $this->query()->avg($key);
     }
 
-    public function min($key)
+    public function min($key): mixed
     {
         return $this->query()->min($key);
     }
 
-    public function max($key)
+    public function max($key): mixed
     {
         return $this->query()->max($key);
     }
 
-    public function insert(array $data)
+    /**
+     * @throws TypeException
+     */
+    public function insert(array $data): array|bool|int|null
     {
-        return $this->execute($this->query(), Query::TYPE_INSERT, $data);
+        return $this->execute(query: $this->query(), type: Query::TYPE_INSERT, arg: $data);
     }
 
-    public function inserts(array $listData)
+    /**
+     * @throws TypeException
+     */
+    public function inserts(array $listData): bool|int
     {
         $this->begin();
         foreach ($listData as $data) {
@@ -335,12 +350,12 @@ class Collection
         return $this->commit();
     }
 
-    public function update(array $data)
+    public function update(array $data): array|bool|int|null
     {
-        return $this->query()->update();
+        return $this->query()->update($data);
     }
 
-    public function delete()
+    public function delete(): array|bool|int|null
     {
         return $this->query()->delete();
     }
@@ -348,49 +363,73 @@ class Collection
     /**
      * 1:1 relation.
      *
-     * @param Collection|Query $relation
+     * @throws TypeException
      */
-    public function withOne($relation, string $as, string $otherKey, string $operator = '=', ?string $thisKey = null)
-    {
-        return $this->query()->withOne($relation, $as, $otherKey, $operator, $thisKey ?: static::KEY_ID);
+    public function withOne(
+        Collection|Query $relation,
+        string $as,
+        string $otherKey,
+        string $operator = '=',
+        ?string $thisKey = null
+    ): Query {
+        return $this->query()->withOne(
+            relation: $relation,
+            as: $as,
+            otherKey: $otherKey,
+            operator: $operator,
+            thisKey: $thisKey ?: static::KEY_ID
+        );
     }
 
     /**
      * 1:n relation.
      *
-     * @param Collection|Query $relation
+     * @throws TypeException
      */
-    public function withMany($relation, string $as, string $otherKey, string $operator = '=', ?string $thisKey = null)
-    {
-        return $this->query()->withMany($relation, $as, $otherKey, $operator, $thisKey ?: static::KEY_ID);
+    public function withMany(
+        Collection|Query $relation,
+        string $as,
+        string $otherKey,
+        string $operator = '=',
+        ?string $thisKey = null
+    ): Query {
+        return $this->query()->withMany(
+            relation: $relation,
+            as: $as,
+            otherKey: $otherKey,
+            operator: $operator,
+            thisKey: $thisKey ?: static::KEY_ID
+        );
     }
 
-    public function generateKey()
+    public function generateKey(): string
     {
         return uniqid($this->options['key_prefix'], (bool) $this->options['more_entropy']);
     }
 
-    public function execute(Query $query, $type, array $arg = [])
+    /**
+     * @throws TypeException
+     * @throws InvalidJsonException
+     */
+    public function execute(Query $query, string $type, array $arg = []): mixed
     {
         if ($query->getCollection() !== $this) {
-            throw new TypeException('Cannot execute query. Query is for different collection.');
+            throw new TypeException(message: 'Cannot execute query. Query is for different collection.');
         }
 
-        switch ($type) {
-            case Query::TYPE_GET:
-                return $this->executeGet($query);
-            case Query::TYPE_SAVE:
-                return $this->executeSave($query);
-            case Query::TYPE_INSERT:
-                return $this->executeInsert($query, $arg);
-            case Query::TYPE_UPDATE:
-                return $this->executeUpdate($query, $arg);
-            case Query::TYPE_DELETE:
-                return $this->executeDelete($query);
-        }
+        return match ($type) {
+            Query::TYPE_GET => $this->executeGet($query),
+            Query::TYPE_SAVE => $this->executeSave($query),
+            Query::TYPE_INSERT => $this->executeInsert($query, $arg),
+            Query::TYPE_UPDATE => $this->executeUpdate($query, $arg),
+            Query::TYPE_DELETE => $this->executeDelete($query),
+        };
     }
 
-    protected function executePipes(array $pipes)
+    /**
+     * @throws InvalidJsonException
+     */
+    protected function executePipes(array $pipes): mixed
     {
         $data = $this->loadData() ?: [];
         foreach ($pipes as $pipe) {
@@ -399,7 +438,10 @@ class Collection
         return $data;
     }
 
-    protected function executeInsert(Query $query, array $new = [])
+    /**
+     * @throws InvalidJsonException
+     */
+    protected function executeInsert(Query $query, array $new = []): ?array
     {
         $data = $this->loadData();
         $key = $new[static::KEY_ID] ?? $this->generateKey();
@@ -407,7 +449,7 @@ class Collection
         $this->lastInsertId = $key;
 
         $newExtra = new ArrayExtra([]);
-        $newExtra->merge($new);
+        $newExtra->merge(value: $new);
 
         $args = [$newExtra];
         $this->trigger(static::INSERTING, $args);
@@ -415,7 +457,7 @@ class Collection
             static::KEY_ID => $key,
         ], $args[0]->toArray());
 
-        $success = $this->persists($data);
+        $success = $this->persists(data: $data);
 
         $args = [$data[$key]];
         $this->trigger(static::INSERTED, $args);
@@ -426,7 +468,10 @@ class Collection
         return $success ? $data[$key] : null;
     }
 
-    protected function executeUpdate(Query $query, array $new = [])
+    /**
+     * @throws InvalidJsonException
+     */
+    protected function executeUpdate(Query $query, array $new = []): bool|int|null
     {
         $data = $this->loadData();
 
@@ -434,7 +479,7 @@ class Collection
         $this->trigger(static::UPDATING, $args);
 
         $pipes = $query->getPipes();
-        $rows = $this->executePipes($pipes);
+        $rows = $this->executePipes(pipes: $pipes);
         $count = count($rows);
         if (0 === $count) {
             return true;
@@ -443,7 +488,7 @@ class Collection
         $updatedData = [];
         foreach ($rows as $key => $row) {
             $record = new ArrayExtra($data[$key]);
-            $record->merge($new);
+            $record->merge(value: $new);
             $data[$key] = $record->toArray();
 
             if (isset($new[static::KEY_ID])) {
@@ -454,7 +499,7 @@ class Collection
             $updatedData[$key] = $data[$key];
         }
 
-        $success = $this->persists($data);
+        $success = $this->persists(data: $data);
 
         $args = [$updatedData];
         $this->trigger(static::UPDATED, $args);
@@ -465,7 +510,10 @@ class Collection
         return $success ? $count : 0;
     }
 
-    protected function executeDelete(Query $query)
+    /**
+     * @throws InvalidJsonException
+     */
+    protected function executeDelete(Query $query): bool|int|null
     {
         $data = $this->loadData();
 
@@ -473,7 +521,7 @@ class Collection
         $this->trigger(static::DELETING, $args);
 
         $pipes = $query->getPipes();
-        $rows = $this->executePipes($pipes);
+        $rows = $this->executePipes(pipes: $pipes);
         $count = count($rows);
         if (0 === $count) {
             return true;
@@ -483,7 +531,7 @@ class Collection
             unset($data[$key]);
         }
 
-        $success = $this->persists($data);
+        $success = $this->persists(data: $data);
 
         $args = [$rows];
         $this->trigger(static::DELETED, $args);
@@ -494,18 +542,24 @@ class Collection
         return $success ? $count : 0;
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     protected function executeGet(Query $query)
     {
         $pipes = $query->getPipes();
-        $data = $this->executePipes($pipes);
-        return array_values($data);
+        $data = $this->executePipes(pipes: $pipes);
+        return array_values(array: $data);
     }
 
-    protected function executeSave(Query $query)
+    /**
+     * @throws InvalidJsonException
+     */
+    protected function executeSave(Query $query): ?int
     {
         $data = $this->loadData();
         $pipes = $query->getPipes();
-        $processed = $this->executePipes($pipes);
+        $processed = $this->executePipes(pipes: $pipes);
         $count = count($processed);
 
         foreach ($processed as $key => $row) {
@@ -520,21 +574,21 @@ class Collection
             $data[$key] = $row;
         }
 
-        $success = $this->persists($data);
+        $success = $this->persists(data: $data);
 
         return $success ? $count : 0;
     }
 
-    public function persists(array $data)
+    public function persists(array $data): bool|int
     {
         if ($this->resolver) {
-            $data = array_map($this->getResolver(), $data);
+            $data = array_map(callback: $this->getResolver(), array: $data);
         }
 
-        return $this->save($data);
+        return $this->save(data: $data);
     }
 
-    protected function save(array $data)
+    protected function save(array $data): bool|int
     {
         if ($this->isModeTransaction()) {
             $this->transactionData = $data;
@@ -544,21 +598,21 @@ class Collection
                 $data = new stdClass();
             }
 
-            $json = json_encode($data, $this->options['save_format']);
+            $json = json_encode(value: $data, flags: $this->options['save_format']);
 
             $filepath = $this->filepath;
-            $pathinfo = pathinfo($filepath);
+            $pathinfo = pathinfo(path: $filepath);
             $dir = $pathinfo['dirname'];
-            if (! is_dir($dir)) {
+            if (! is_dir(filename: $dir)) {
                 throw new DirectoryNotFoundException(
-                    sprintf(
+                    message: sprintf(
                         'Cannot save database. Directory `%s` not found or it is not a directory.',
                         $dir
                     )
                 );
             }
 
-            return file_put_contents($filepath, $json, LOCK_EX);
+            return file_put_contents(filename: $filepath, data: $json, flags: LOCK_EX);
         }
     }
 
@@ -567,21 +621,23 @@ class Collection
      *
      * @return string|int The last insert id.
      */
-    public function lastInsertId()
+    public function lastInsertId(): int|string|null
     {
         return $this->lastInsertId;
     }
 
-
-    public function __call($method, $args)
+    /**
+     * @throws UndefinedMethodException
+     */
+    public function __call(mixed $method, mixed $args)
     {
-        $macro = $this->getMacro($method);
+        $macro = $this->getMacro(name: $method);
 
         if ($macro) {
             return call_user_func_array($macro, array_merge([$this->query()], $args));
         } else {
             throw new UndefinedMethodException(
-                sprintf(
+                message: sprintf(
                     'Undefined method or macro `%s`.',
                     $method
                 )

@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 namespace Qubus\NoSql;
 
-class DB
+class NodeQ
 {
     /** @var array $collections */
     protected static array $collections = [];
