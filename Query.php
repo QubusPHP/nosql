@@ -17,6 +17,7 @@ namespace Qubus\NoSql;
 
 use Closure;
 use Qubus\Exception\Data\TypeException;
+use Qubus\NoSql\Exceptions\InvalidJsonException;
 use Qubus\NoSql\Exceptions\UndefinedMethodException;
 use Qubus\NoSql\Pipes\FilterPipe;
 use Qubus\NoSql\Pipes\LimiterPipe;
@@ -63,7 +64,7 @@ class Query
         return $this->collection;
     }
 
-    public function setCollection(Collection $collection)
+    public function setCollection(Collection $collection): void
     {
         $this->collection = $collection;
     }
@@ -74,11 +75,11 @@ class Query
      * @param mixed ...$filter
      * @return self
      */
-    public function where($filter)
+    public function where($filter): static
     {
         $args = func_get_args();
         array_unshift($args, 'AND');
-        call_user_func_array([$this, 'addWhere'], $args);
+        call_user_func_array(callback: [$this, 'addWhere'], args: $args);
         return $this;
     }
 
@@ -88,7 +89,7 @@ class Query
      * @param mixed ...$filter
      * @return self
      */
-    public function orWhere($filter)
+    public function orWhere($filter): static
     {
         $args = func_get_args();
         array_unshift($args, 'OR');
@@ -96,17 +97,17 @@ class Query
         return $this;
     }
 
-    public function map(Closure $mapper)
+    public function map(Closure $mapper): static
     {
         $this->addMapper($mapper);
         return $this;
     }
 
-    public function select(array $columns)
+    public function select(array $columns): static
     {
         $resolvedColumns = [];
         foreach ($columns as $column) {
-            $exp = explode(':', $column);
+            $exp = explode(separator: ':', string: $column);
             $col = $exp[0];
             if (count($exp) > 1) {
                 $keyAlias = $exp[1];
@@ -116,9 +117,9 @@ class Query
             $resolvedColumns[$col] = $keyAlias;
         }
 
-        $keyAliases = array_values($resolvedColumns);
+        $keyAliases = array_values(array: $resolvedColumns);
 
-        return $this->map(function ($row) use ($resolvedColumns, $keyAliases) {
+        return $this->map(mapper: function ($row) use ($resolvedColumns, $keyAliases) {
             foreach ($resolvedColumns as $col => $keyAlias) {
                 if (! isset($row[$keyAlias])) {
                     $row[$keyAlias] = $row[$col];
@@ -143,13 +144,19 @@ class Query
      * @param string $otherKey
      * @param string $operator
      * @param string $thisKey
+     * @throws TypeException
      */
-    public function withOne($relation, $as, $otherKey, $operator = '=', $thisKey = '_id')
-    {
+    public function withOne(
+        Collection|Query $relation,
+        string $as,
+        string $otherKey,
+        string $operator = '=',
+        string $thisKey = '_id'
+    ): static {
         if (false === $relation instanceof Query && false === $relation instanceof Collection) {
-            throw new TypeException('Relation must be instanceof Query or Collection.', 1);
+            throw new TypeException(message: 'Relation must be instanceof Query or Collection.', code: 1);
         }
-        return $this->map(function ($row) use ($relation, $as, $otherKey, $operator, $thisKey) {
+        return $this->map(mapper: function ($row) use ($relation, $as, $otherKey, $operator, $thisKey) {
             $otherData = $relation->where($otherKey, $operator, $row[$thisKey])->first();
             $row[$as] = $otherData;
             return $row;
@@ -164,11 +171,17 @@ class Query
      * @param string $otherKey
      * @param string $operator
      * @param string $thisKey
+     * @throws TypeException
      */
-    public function withMany($relation, $as, $otherKey, $operator = '=', $thisKey = '_id')
-    {
+    public function withMany(
+        Collection|Query $relation,
+        string $as,
+        string $otherKey,
+        string $operator = '=',
+        string $thisKey = '_id'
+    ): static {
         if (false !== $relation instanceof Query && false === $relation instanceof Collection) {
-            throw new TypeException('Relation must be instanceof Query or Collection.', 1);
+            throw new TypeException(message: 'Relation must be instanceof Query or Collection.', code: 1);
         }
         return $this->map(function ($row) use ($relation, $as, $otherKey, $operator, $thisKey) {
             $otherData = $relation->where($otherKey, $operator, $row[$thisKey])->get();
@@ -180,14 +193,15 @@ class Query
     /**
      * Sort results.
      *
-     * @param Closure|string $key
+     * @param string|Closure $key
      * @param string $asc
+     * @throws TypeException
      */
-    public function sortBy($key, $asc = 'asc')
+    public function sortBy(string|Closure $key, string $asc = 'asc'): static
     {
-        $asc = strtolower($asc);
-        if (! in_array($asc, ['asc', 'desc'])) {
-            throw new TypeException("Sorting must be 'asc' or 'desc'.", 1);
+        $asc = strtolower(string: $asc);
+        if (! in_array(needle: $asc, haystack: ['asc', 'desc'])) {
+            throw new TypeException(message: "Sorting must be 'asc' or 'desc'.", code: 1);
         }
 
         if ($key instanceof Closure) {
@@ -198,21 +212,21 @@ class Query
             };
         }
 
-        $this->addSorter(function ($row) use ($value) {
-            return $value(new ArrayExtra($row));
-        }, $asc);
+        $this->addSorter(value: function ($row) use ($value) {
+            return $value(new ArrayExtra(items: $row));
+        }, asc: $asc);
         return $this;
     }
 
-    public function skip(int $offset)
+    public function skip(int $offset): static
     {
-        $this->getLimiter()->setOffset($offset);
+        $this->getLimiter()->setOffset(offset: $offset);
         return $this;
     }
 
-    public function take(int $limit, int $offset = 0)
+    public function take(int $limit, int $offset = 0): static
     {
-        $this->getLimiter()->setLimit($limit)->setOffset($offset);
+        $this->getLimiter()->setLimit(limit: $limit)->setOffset(offset: $offset);
         return $this;
     }
 
@@ -223,12 +237,12 @@ class Query
      *
      * @param array $select
      */
-    public function get(array $select = [])
+    public function get(array $select = []): mixed
     {
         if (! empty($select)) {
-            $this->select($select);
+            $this->select(columns: $select);
         }
-        return $this->execute(self::TYPE_GET);
+        return $this->execute(type: self::TYPE_GET);
     }
 
     /**
@@ -238,90 +252,97 @@ class Query
      *
      * @param array $select
      */
-    public function first(array $select = [])
+    public function first(array $select = []): mixed
     {
-        $data = $this->take(1)->get($select);
+        $data = $this->take(limit: 1)->get(select: $select);
         return array_shift($data);
     }
 
-    public function update(array $new)
+    public function update(array $new): mixed
     {
-        return $this->execute(self::TYPE_UPDATE, $new);
+        return $this->execute(type: self::TYPE_UPDATE, arg: $new);
     }
 
-    public function delete()
+    public function delete(): mixed
     {
-        return $this->execute(self::TYPE_DELETE);
+        return $this->execute(type: self::TYPE_DELETE);
     }
 
-    public function save()
+    public function save(): mixed
     {
-        return $this->execute(self::TYPE_SAVE);
+        return $this->execute(type: self::TYPE_SAVE);
     }
 
-    public function count()
+    public function count(): int
     {
         return count($this->get());
     }
 
-    public function sum($key)
+    public function sum($key): mixed
     {
         $sum = 0;
         foreach ($this->get() as $data) {
-            $data = new ArrayExtra($data);
+            $data = new ArrayExtra(items: $data);
             $sum += $data[$key];
         }
         return $sum;
     }
 
-    public function avg($key)
+    public function avg($key): mixed
     {
         $sum = 0;
         $count = 0;
         foreach ($this->get() as $data) {
-            $data = new ArrayExtra($data);
+            $data = new ArrayExtra(items: $data);
             $sum += $data[$key];
             $count++;
         }
         return $sum / $count;
     }
 
-    public function lists($key, $resultKey = null)
+    public function lists(string $key, mixed $resultKey = null): array
     {
         $result = [];
         foreach ($this->get() as $i => $data) {
-            $data = new ArrayExtra($data);
+            $data = new ArrayExtra(items: $data);
             $k = $resultKey ? $data[$resultKey] : $i;
             $result[$k] = $data[$key];
         }
         return $result;
     }
 
-    public function pluck($key, $resultKey = null)
+    public function pluck(string $key, $resultKey = null): array
     {
-        return $this->lists($key, $resultKey);
+        return $this->lists(key: $key, resultKey: $resultKey);
     }
 
-    public function min($key)
+    public function min(string $key): mixed
     {
-        return min($this->lists($key));
+        return min($this->lists(key: $key));
     }
 
-    public function max($key)
+    public function max($key): mixed
     {
-        return max($this->lists($key));
+        return max($this->lists(key: $key));
     }
 
-    public function getPipes()
+    public function getPipes(): array
     {
         return $this->pipes;
     }
 
-    protected function execute($type, array $arg = [])
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
+    protected function execute(string $type, array $arg = [])
     {
-        return $this->getCollection()->execute($this, $type, $arg);
+        return $this->getCollection()->execute(query: $this, type: $type, arg: $arg);
     }
 
+    /**
+     * @throws TypeException
+     */
     protected function addWhere($type, $filter)
     {
         if ($filter instanceof Closure) {
@@ -366,22 +387,22 @@ class Query
                 break;
             case 'in':
                 $filter = function ($row) use ($key, $value) {
-                    return in_array($row[$key], (array) $value);
+                    return in_array(needle: $row[$key], haystack: (array) $value);
                 };
                 break;
             case 'not in':
                 $filter = function ($row) use ($key, $value) {
-                    return ! in_array($row[$key], (array) $value);
+                    return ! in_array(needle: $row[$key], haystack: (array) $value);
                 };
                 break;
             case 'match':
                 $filter = function ($row) use ($key, $value) {
-                    return (bool) preg_match($value, $row[$key]);
+                    return (bool) preg_match(pattern: $value, subject: $row[$key]);
                 };
                 break;
             case 'between':
-                if (! is_array($value) || count($value) < 2) {
-                    throw new TypeException('Query between need exactly 2 items in array.');
+                if (! is_array(value: $value) || count($value) < 2) {
+                    throw new TypeException(message: 'Query between need exactly 2 items in array.');
                 }
                 $filter = function ($row) use ($key, $value) {
                     $v = $row[$key];
@@ -402,30 +423,30 @@ class Query
         $this->addFilter($filter, $type);
     }
 
-    protected function addFilter(Closure $filter, $type = 'AND')
+    protected function addFilter(Closure $filter, string $type = 'AND'): void
     {
         $lastPipe = $this->getLastPipe();
         if (false === $lastPipe instanceof FilterPipe) {
             $pipe = new FilterPipe($this);
-            $this->addPipe($pipe);
+            $this->addPipe(pipe: $pipe);
         } else {
             $pipe = $lastPipe;
         }
 
         $newFilter = function ($row) use ($filter) {
-            $row = new ArrayExtra($row);
+            $row = new ArrayExtra(items: $row);
             return $filter($row);
         };
 
-        $pipe->add($newFilter, $type);
+        $pipe->add(filter: $newFilter, type: $type);
     }
 
-    protected function addMapper(Closure $mapper)
+    protected function addMapper(Closure $mapper): void
     {
         $lastPipe = $this->getLastPipe();
         if (false === $lastPipe instanceof MapperPipe) {
             $pipe = new MapperPipe($this);
-            $this->addPipe($pipe);
+            $this->addPipe(pipe: $pipe);
         } else {
             $pipe = $lastPipe;
         }
@@ -434,10 +455,10 @@ class Query
         $keyOldId = $this->getCollection()->getKeyOldId();
 
         $newMapper = function ($row) use ($mapper, $keyId, $keyOldId) {
-            $row = new ArrayExtra($row);
+            $row = new ArrayExtra(items: $row);
             $result = $mapper($row);
 
-            if (is_array($result)) {
+            if (is_array(value: $result)) {
                 $new = $result;
             } elseif ($result instanceof ArrayExtra) {
                 $new = $result->toArray();
@@ -445,7 +466,7 @@ class Query
                 $new = null;
             }
 
-            if (is_array($new) && isset($new[$keyId])) {
+            if (is_array(value: $new) && isset($new[$keyId])) {
                 if ($row[$keyId] !== $new[$keyId]) {
                     $new[$keyOldId] = $row[$keyId];
                 }
@@ -457,18 +478,18 @@ class Query
         $pipe->add($newMapper);
     }
 
-    protected function addSorter(Closure $value, $asc)
+    protected function addSorter(Closure $value, string $asc): void
     {
-        $pipe = new SorterPipe($value, $asc);
+        $pipe = new SorterPipe(value: $value, ascending: $asc);
         $this->addPipe($pipe);
     }
 
-    protected function getLimiter()
+    protected function getLimiter(): LimiterPipe
     {
         $lastPipe = $this->getLastPipe();
         if (false === $lastPipe instanceof LimiterPipe) {
             $limiter = new LimiterPipe();
-            $this->addPipe($limiter);
+            $this->addPipe(pipe: $limiter);
         } else {
             $limiter = $lastPipe;
         }
@@ -476,7 +497,7 @@ class Query
         return $limiter;
     }
 
-    protected function addPipe(Pipe $pipe)
+    protected function addPipe(Pipe $pipe): void
     {
         $this->pipes[] = $pipe;
     }
@@ -486,15 +507,18 @@ class Query
         return ! empty($this->pipes) ? $this->pipes[count($this->pipes) - 1] : null;
     }
 
-    public function __call($method, $args)
+    /**
+     * @throws UndefinedMethodException
+     */
+    public function __call(mixed $method, mixed $args)
     {
-        $macro = $this->collection->getMacro($method);
+        $macro = $this->collection->getMacro(name: $method);
 
         if ($macro) {
             return call_user_func_array($macro, array_merge([$this], $args));
         } else {
             throw new UndefinedMethodException(
-                sprintf(
+                message: sprintf(
                     'Undefined method or macro `%s`.',
                     $method
                 )

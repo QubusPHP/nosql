@@ -35,26 +35,25 @@ class ArrayExtra implements ArrayAccess
      * @param array $items
      * @return void
      */
-    public function __construct($items)
+    public function __construct(array $items)
     {
-        $this->items = $this->getArrayValue($items, 'Items must be array or ArrayExtra object');
+        $this->items = $this->getArrayValue(value: $items, message: 'Items must be array or ArrayExtra object');
     }
 
     /**
      * Check if an item or items exist in an array using "dot" notation.
      *
-     * @param array  $array
-     * @param string|array  $keys
-     * @return bool
+     * @param array $array
+     * @param string|int $key
      */
-    public static function arrayHas(array $array, $key)
+    public static function arrayHas(array $array, mixed $key): bool
     {
-        if (array_key_exists($key, $array)) {
+        if (array_key_exists(key: $key, array: $array)) {
             return true;
         }
 
-        foreach (explode('.', $key) as $segment) {
-            if (is_array($array) && array_key_exists($segment, $array)) {
+        foreach (explode(separator: '.', string: $key) as $segment) {
+            if (is_array(value: $array) && array_key_exists(key: $segment, array: $array)) {
                 $array = $array[$segment];
             } else {
                 return false;
@@ -67,22 +66,21 @@ class ArrayExtra implements ArrayAccess
     /**
      * Get an item from an array using "dot" notation.
      *
-     * @param array  $array
-     * @param string  $key
-     * @return mixed
+     * @param array $array
+     * @param string $key
      */
-    public static function arrayGet(array $array, $key)
+    public static function arrayGet(array $array, mixed $key = null): mixed
     {
         if (null === $key) {
             return $array;
         }
 
-        if (array_key_exists($key, $array)) {
+        if (array_key_exists(key: $key, array: $array)) {
             return $array[$key];
         }
 
-        foreach (explode('.', $key) as $segment) {
-            if (is_array($array) && array_key_exists($segment, $array)) {
+        foreach (explode(separator: '.', string: $key) as $segment) {
+            if (is_array(value: $array) && array_key_exists(key: $segment, array: $array)) {
                 $array = $array[$segment];
             } else {
                 return null;
@@ -94,18 +92,13 @@ class ArrayExtra implements ArrayAccess
 
     /**
      * Set an item on an array or object using dot notation.
-     *
-     * @param mixed $target
-     * @param string|array  $key
-     * @param mixed $value
-     * @return mixed
      */
-    public static function arraySet(&$target, $key, $value, bool $overwrite = true)
+    public static function arraySet(mixed &$target, array|string $key, mixed $value, bool $overwrite = true): mixed
     {
-        $segments = is_array($key) ? $key : explode('.', $key);
+        $segments = is_array(value: $key) ? $key : explode(separator: '.', string: $key);
 
         if (($segment = array_shift($segments)) === '*') {
-            if (! is_array($target)) {
+            if (! is_array(value: $target)) {
                 $target = [];
             }
 
@@ -118,14 +111,14 @@ class ArrayExtra implements ArrayAccess
                     $inner = $value;
                 }
             }
-        } elseif (is_array($target)) {
+        } elseif (is_array(value: $target)) {
             if ($segments) {
-                if (! array_key_exists($segment, $target)) {
+                if (! array_key_exists(key: $segment, array: $target)) {
                     $target[$segment] = [];
                 }
 
                 static::arraySet($target[$segment], $segments, $value, $overwrite);
-            } elseif ($overwrite || ! array_key_exists($segment, $target)) {
+            } elseif ($overwrite || ! array_key_exists(key: $segment, array: $target)) {
                 $target[$segment] = $value;
             }
         } else {
@@ -147,14 +140,14 @@ class ArrayExtra implements ArrayAccess
      * @param array $array
      * @param string $key
      */
-    public static function arrayRemove(array &$array, $key)
+    public static function arrayRemove(array &$array, string $key)
     {
-        $keys = explode('.', $key);
+        $keys = explode(separator: '.', string: $key);
 
         while (count($keys) > 1) {
             $key = array_shift($keys);
 
-            if (! isset($array[$key]) || ! is_array($array[$key])) {
+            if (! isset($array[$key]) || ! is_array(value: $array[$key])) {
                 $array[$key] = [];
             }
 
@@ -170,9 +163,9 @@ class ArrayExtra implements ArrayAccess
      * @param array $value
      * @return void
      */
-    public function merge($value)
+    public function merge(array $value): void
     {
-        $array = $this->getArrayValue($value, "Value is not mergeable.");
+        $array = $this->getArrayValue(value: $value, message: 'Value is not mergeable.');
 
         foreach ($value as $key => $val) {
             $this->items = static::arraySet($this->items, $key, $val, true);
@@ -182,17 +175,17 @@ class ArrayExtra implements ArrayAccess
     /**
      * Returns array value.
      *
-     * @param array $value
+     * @param array|ArrayExtra $value
      * @param string $message
      * @return array
      */
-    protected function getArrayValue($value, $message)
+    protected function getArrayValue(ArrayExtra|array $value, string $message)
     {
-        if (! is_array($value) && false === $value instanceof ArrayExtra) {
-            throw new InvalidArgumentException($message);
+        if (! is_array(value: $value) && false === $value instanceof ArrayExtra) {
+            throw new InvalidArgumentException(message: $message);
         }
 
-        return is_array($value) ? $value : $value->toArray();
+        return is_array(value: $value) ? $value : $value->toArray();
     }
 
     /**
@@ -205,23 +198,23 @@ class ArrayExtra implements ArrayAccess
         return $this->items;
     }
 
-    public function offsetSet($key, $value)
+    public function offsetSet(mixed $offset, mixed $value): void
     {
-        $this->items = static::arraySet($this->items, $key, $value, true);
+        $this->items = static::arraySet($this->items, $offset, $value, true);
     }
 
-    public function offsetExists($key)
+    public function offsetExists(mixed $offset): bool
     {
-        return static::arrayHas($this->items, $key);
+        return static::arrayHas(array: $this->items, key: $offset);
     }
 
-    public function offsetUnset($key)
+    public function offsetUnset(mixed $offset): void
     {
-        static::arrayRemove($this->items, $key);
+        static::arrayRemove($this->items, $offset);
     }
 
-    public function offsetGet($key)
+    public function offsetGet(mixed $offset): mixed
     {
-        return static::arrayGet($this->items, $key);
+        return static::arrayGet(array: $this->items, key: $offset);
     }
 }

@@ -27,7 +27,7 @@ class MapperPipe implements Pipe
     public function process(array $data): array
     {
         foreach ($this->mappers as $mapper) {
-            $data = array_map($mapper, $data);
+            $data = array_map(callback: $mapper, array: $data);
         }
 
         return $data;

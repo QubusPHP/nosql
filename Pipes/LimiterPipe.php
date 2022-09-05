@@ -23,13 +23,13 @@ class LimiterPipe implements Pipe
     protected int $limit = 0;
     protected int $offset = 0;
 
-    public function setLimit(int $limit)
+    public function setLimit(int $limit): static
     {
         $this->limit = $limit;
         return $this;
     }
 
-    public function setOffset(int $offset = 0)
+    public function setOffset(int $offset = 0): static
     {
         $this->offset = $offset;
 
@@ -40,6 +40,6 @@ class LimiterPipe implements Pipe
     {
         $limit = (int) $this->limit ?: count($data);
         $offset = (int) $this->offset;
-        return array_slice($data, $offset, $limit);
+        return array_slice(array: $data, offset: $offset, length: $limit);
     }
 }
