@@ -1,3 +1,8 @@
+## 1.0.2 (2024.09.04)
+- Min version of PHP 8.1
+- Updated composer.json
+- Renamed DB class to NodeQ
+
 ## 1.0.2 (2021.09.22)
 - Cosmetic changes
 
