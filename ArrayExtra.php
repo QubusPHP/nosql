@@ -4,11 +4,9 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2020 Joshua Parker <joshua@joshuaparker.dev>
  * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
- *
- * @since      1.0.0
  */
 
 declare(strict_types=1);
@@ -45,6 +43,7 @@ class ArrayExtra implements ArrayAccess
      *
      * @param array $array
      * @param string|int $key
+     * @return bool
      */
     public static function arrayHas(array $array, mixed $key): bool
     {
@@ -68,6 +67,7 @@ class ArrayExtra implements ArrayAccess
      *
      * @param array $array
      * @param string $key
+     * @return mixed
      */
     public static function arrayGet(array $array, mixed $key = null): mixed
     {
@@ -140,7 +140,7 @@ class ArrayExtra implements ArrayAccess
      * @param array $array
      * @param string $key
      */
-    public static function arrayRemove(array &$array, string $key)
+    public static function arrayRemove(array &$array, string $key): void
     {
         $keys = explode(separator: '.', string: $key);
 
@@ -179,7 +179,7 @@ class ArrayExtra implements ArrayAccess
      * @param string $message
      * @return array
      */
-    protected function getArrayValue(ArrayExtra|array $value, string $message)
+    protected function getArrayValue(ArrayExtra|array $value, string $message): array
     {
         if (! is_array(value: $value) && false === $value instanceof ArrayExtra) {
             throw new InvalidArgumentException(message: $message);

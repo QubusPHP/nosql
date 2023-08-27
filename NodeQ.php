@@ -4,11 +4,9 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2020 Joshua Parker <joshua@joshuaparker.dev>
  * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
- *
- * @since      1.0.0
  */
 
 declare(strict_types=1);
@@ -30,7 +28,7 @@ class NodeQ
      * @param array $options
      * @return Collection
      */
-    public static function open($file, array $options = [])
+    public static function open(string $file, array $options = []): Collection
     {
         if (! isset(static::$collections[$file])) {
             static::$collections[$file] = new Collection($file, $options);
@@ -51,7 +49,7 @@ class NodeQ
      *
      * @param string $name Name of the macro.
      */
-    public static function macro($name, callable $callback): void
+    public static function macro(string $name, callable $callback): void
     {
         static::$macros[$name] = $callback;
     }

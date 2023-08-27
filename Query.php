@@ -4,11 +4,9 @@
  * Qubus\NoSql
  *
  * @link       https://github.com/QubusPHP/nosql
- * @copyright  2020 Joshua Parker <josh@joshuaparker.blog>
+ * @copyright  2020 Joshua Parker <joshua@joshuaparker.dev>
  * @copyright  2017 Muhammad Syifa
  * @license    https://opensource.org/licenses/mit-license.php MIT License
- *
- * @since      1.0.0
  */
 
 declare(strict_types=1);
@@ -144,6 +142,7 @@ class Query
      * @param string $otherKey
      * @param string $operator
      * @param string $thisKey
+     * @return Query
      * @throws TypeException
      */
     public function withOne(
@@ -171,6 +170,7 @@ class Query
      * @param string $otherKey
      * @param string $operator
      * @param string $thisKey
+     * @return Query
      * @throws TypeException
      */
     public function withMany(
@@ -195,6 +195,7 @@ class Query
      *
      * @param string|Closure $key
      * @param string $asc
+     * @return Query
      * @throws TypeException
      */
     public function sortBy(string|Closure $key, string $asc = 'asc'): static
@@ -236,13 +237,18 @@ class Query
      * If you want to retrieve a specific column define the column in the `$select` array.
      *
      * @param array $select
+     * @return mixed
      */
     public function get(array $select = []): mixed
     {
         if (! empty($select)) {
             $this->select(columns: $select);
         }
-        return $this->execute(type: self::TYPE_GET);
+        try {
+            return $this->execute(type: self::TYPE_GET);
+        } catch (TypeException | InvalidJsonException $e) {
+            die($e->getMessage());
+        }
     }
 
     /**
@@ -251,6 +257,7 @@ class Query
      * If you want to retrieve a specific column(s) define the column in the `$select` array.
      *
      * @param array $select
+     * @return mixed
      */
     public function first(array $select = []): mixed
     {
@@ -258,16 +265,28 @@ class Query
         return array_shift($data);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function update(array $new): mixed
     {
         return $this->execute(type: self::TYPE_UPDATE, arg: $new);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function delete(): mixed
     {
         return $this->execute(type: self::TYPE_DELETE);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function save(): mixed
     {
         return $this->execute(type: self::TYPE_SAVE);
