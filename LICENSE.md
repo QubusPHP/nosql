@@ -1,6 +1,6 @@
 The MIT License (MIT)
 
-Copyright (c) 2020 [Joshua Parker](mailto:josh@joshuaparker.blog)
+Copyright (c) 2020 [Joshua Parker](mailto:joshua@joshuaparker.dev)
 
 Copyright (c) 2017 Muhammad Syifa
 
