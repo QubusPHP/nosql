@@ -19,6 +19,7 @@ use Qubus\Exception\Exception;
 use Qubus\Exception\IO\FileSystem\DirectoryNotFoundException;
 use Qubus\NoSql\Exceptions\InvalidJsonException;
 use Qubus\NoSql\Exceptions\UndefinedMethodException;
+use Qubus\ValueObjects\Identity\Ulid;
 use stdClass;
 
 use function array_key_exists;
@@ -43,20 +44,20 @@ use const LOCK_EX;
 
 class Collection
 {
-    public const KEY_ID = '_id';
-    public const KEY_OLD_ID = '_old';
+    public const string KEY_ID = '_id';
+    public const string KEY_OLD_ID = '_old';
 
-    public const UPDATING  = 'updating';
-    public const UPDATED   = 'updated';
-    public const INSERTING = 'inserting';
-    public const INSERTED  = 'inserted';
-    public const DELETING  = 'deleting';
-    public const DELETED   = 'deleted';
-    public const CHANGED   = 'changed';
+    public const string UPDATING  = 'updating';
+    public const string UPDATED   = 'updated';
+    public const string INSERTING = 'inserting';
+    public const string INSERTED  = 'inserted';
+    public const string DELETING  = 'deleting';
+    public const string DELETED   = 'deleted';
+    public const string CHANGED   = 'changed';
 
     protected ?string $filepath = null;
 
-    protected $resolver = null;
+    protected mixed $resolver = null;
 
     /** @var array $events */
     protected array $events = [];
@@ -69,19 +70,17 @@ class Collection
     /** @var array $macros */
     protected array $macros = [];
 
-    /** @var string|int|null $lastInsertId */
-    protected string|int|null $lastInsertId;
+    /** @var ?string $lastInsertId */
+    protected ?string $lastInsertId = null;
 
     /** @var array|bool[]|int[]|string[] */
-    private array $options;
+    private array $options = [];
 
     public function __construct(string $filepath, array $options = [])
     {
         $this->options = array_merge([
             'file_extension' => '.json',
             'save_format'    => JSON_PRETTY_PRINT,
-            'key_prefix'     => '',
-            'more_entropy'   => false,
         ], $options);
 
         $this->filepath = $filepath . $this->options['file_extension'];
@@ -350,11 +349,19 @@ class Collection
         return $this->commit();
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function update(array $data): array|bool|int|null
     {
         return $this->query()->update($data);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function delete(): array|bool|int|null
     {
         return $this->query()->delete();
@@ -404,7 +411,7 @@ class Collection
 
     public function generateKey(): string
     {
-        return uniqid($this->options['key_prefix'], (bool) $this->options['more_entropy']);
+        return Ulid::generateAsString();
     }
 
     /**
@@ -440,13 +447,14 @@ class Collection
 
     /**
      * @throws InvalidJsonException
+     * @throws TypeException
      */
     protected function executeInsert(Query $query, array $new = []): ?array
     {
         $data = $this->loadData();
         $key = $new[static::KEY_ID] ?? $this->generateKey();
 
-        $this->lastInsertId = $key;
+        $this->lastInsertId = Ulid::fromNative($key)->toNative();
 
         $newExtra = new ArrayExtra([]);
         $newExtra->merge(value: $new);
@@ -619,9 +627,9 @@ class Collection
     /**
      * Returns the last insert id from the current document being acted upon.
      *
-     * @return int|string|null The last insert id.
+     * @return ?string The last insert id.
      */
-    public function lastInsertId(): int|string|null
+    public function lastInsertId(): ?string
     {
         return $this->lastInsertId;
     }
