@@ -3,13 +3,16 @@
 NoSQL is a flat file Database with a JSON storage format.
 
 ## Requirements
-* PHP 8.2+
+
+* PHP 8.4+
 
 ## Installation
+
 ```bash
-$ composer require qubus/nosql
+composer require qubus/nosql
 ```
 
 ## More Info
+
 - [Documentation](https://docs.stalframework.com/no-sql/)
 - [Contributing](https://docs.stalframework.com/contributing/)
