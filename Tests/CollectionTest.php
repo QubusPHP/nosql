@@ -6,8 +6,11 @@ namespace Qubus\Tests\NoSql;
 
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
+use Qubus\Exception\Data\TypeException;
+use Qubus\Exception\Exception;
 use Qubus\NoSql\Collection;
-use Qubus\NoSql\NodeQ;
+use Qubus\NoSql\Exceptions\InvalidJsonException;
+use Qubus\NoSql\Node;
 
 use function array_keys;
 use function array_values;
@@ -15,8 +18,6 @@ use function file_put_contents;
 use function json_encode;
 use function range;
 use function str_replace;
-use function strlen;
-use function substr;
 use function unlink;
 
 use const JSON_PRETTY_PRINT;
@@ -29,20 +30,20 @@ class CollectionTest extends TestCase
 
     /** @var array $dummyData */
     protected array $dummyData = [
-        '58745c13ad585' => [
-            '_id'   => '58745c13ad585',
+        '01K7A51H9EE1PSAQ3TW8897XTG' => [
+            '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
             'email' => 'a@site.com',
             'name'  => 'A',
             'score' => 80,
         ],
-        '58745c19b4c51' => [
-            '_id'   => '58745c19b4c51',
+        '01K7A51JXJEFBBT89K10CA13H1' => [
+            '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
             'email' => 'b@site.com',
             'name'  => 'B',
             'score' => 76,
         ],
-        '58745c1ef0b13' => [
-            '_id'   => '58745c1ef0b13',
+        '01K7A81ZRBEAV91ACBN8K0N4W0' => [
+            '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
             'email' => 'c@site.com',
             'name'  => 'C',
             'score' => 95,
@@ -58,17 +59,23 @@ class CollectionTest extends TestCase
         $this->nodeq = new Collection($this->filepath);
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function testAll()
     {
         $result = $this->nodeq->all();
         Assert::assertEquals($result, array_values($this->dummyData));
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function testFind()
     {
-        $result = $this->nodeq->find('58745c19b4c51');
+        $result = $this->nodeq->find('01K7A51JXJEFBBT89K10CA13H1');
         Assert::assertEquals([
-            '_id'   => '58745c19b4c51',
+            '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
             'email' => 'b@site.com',
             'name'  => 'B',
             'score' => 76,
@@ -79,7 +86,7 @@ class CollectionTest extends TestCase
     {
         $result = $this->nodeq->query()->first();
         Assert::assertEquals([
-            '_id'   => '58745c13ad585',
+            '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
             'email' => 'a@site.com',
             'name'  => 'A',
             'score' => 80,
@@ -99,7 +106,7 @@ class CollectionTest extends TestCase
 
         Assert::assertEquals([
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -141,24 +148,27 @@ class CollectionTest extends TestCase
         ], $result);
     }
 
+    /**
+     * @throws TypeException
+     */
     public function testSortAscending()
     {
         $result = $this->nodeq->query()->sortBy('score', 'asc')->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
             ],
             [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 80,
             ],
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -166,24 +176,27 @@ class CollectionTest extends TestCase
         ], $result);
     }
 
+    /**
+     * @throws TypeException
+     */
     public function testSortDescending()
     {
         $result = $this->nodeq->query()->sortBy('score', 'desc')->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
             ],
             [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 80,
             ],
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
@@ -196,13 +209,13 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->query()->skip(1)->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
             ],
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -215,7 +228,7 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->query()->take(1, 1)->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
@@ -268,7 +281,7 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('name', 'C')->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -281,13 +294,13 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('name', 'C')->orWhere('name', 'B')->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
             ],
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -300,7 +313,7 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('score', '>', 80)->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -313,13 +326,13 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('score', '>=', 80)->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 80,
             ],
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -332,7 +345,7 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('score', '<', 80)->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
@@ -345,13 +358,13 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('score', '<=', 80)->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 80,
             ],
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
@@ -364,7 +377,7 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('score', 'in', [80])->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 80,
@@ -377,13 +390,13 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('score', 'not in', [80])->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
             ],
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -396,7 +409,7 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('email', 'match', '/^b@/')->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
@@ -409,13 +422,13 @@ class CollectionTest extends TestCase
         $result = $this->nodeq->where('score', 'between', [80, 95])->get();
         Assert::assertEquals([
             [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 80,
             ],
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 95,
@@ -423,6 +436,10 @@ class CollectionTest extends TestCase
         ], $result);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function testInsert()
     {
         $this->nodeq->insert([
@@ -438,6 +455,11 @@ class CollectionTest extends TestCase
         Assert::assertEquals($data['_id'], $lastInsertId);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     * @throws Exception
+     */
     public function testInsertWithTransaction()
     {
         $this->nodeq->transaction(function (Collection $db) {
@@ -455,6 +477,10 @@ class CollectionTest extends TestCase
         Assert::assertEquals($data['_id'], $lastInsertId);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function testInserts()
     {
         $this->nodeq->inserts([
@@ -466,6 +492,9 @@ class CollectionTest extends TestCase
         Assert::assertEquals(6, $this->nodeq->count());
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function testUpdate()
     {
         $this->nodeq->where('score', '>=', 80)->update([
@@ -474,19 +503,19 @@ class CollectionTest extends TestCase
 
         Assert::assertEquals([
             [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 90,
             ],
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
             ],
             [
-                '_id'   => '58745c1ef0b13',
+                '_id'   => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'email' => 'c@site.com',
                 'name'  => 'C',
                 'score' => 90,
@@ -494,6 +523,9 @@ class CollectionTest extends TestCase
         ], $this->nodeq->all());
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function testUpdateWithFilterMapAndSave()
     {
         $this->nodeq->where('score', '>=', 80)->map(function ($row) {
@@ -504,28 +536,31 @@ class CollectionTest extends TestCase
 
         Assert::assertEquals([
             [
-                '_id' => '58745c13ad585',
+                '_id' => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'x'   => 80,
             ],
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
             ],
             [
-                '_id' => '58745c1ef0b13',
+                '_id' => '01K7A81ZRBEAV91ACBN8K0N4W0',
                 'x'   => 95,
             ],
         ], $this->nodeq->all());
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function testDelete()
     {
         $this->nodeq->where('score', '>=', 80)->delete();
         Assert::assertEquals([
             [
-                '_id'   => '58745c19b4c51',
+                '_id'   => '01K7A51JXJEFBBT89K10CA13H1',
                 'email' => 'b@site.com',
                 'name'  => 'B',
                 'score' => 76,
@@ -533,16 +568,19 @@ class CollectionTest extends TestCase
         ], $this->nodeq->all());
     }
 
+    /**
+     * @throws TypeException
+     */
     public function testWithOne()
     {
         $result = $this->nodeq->withOne($this->nodeq, 'other', 'email', '=', 'email')->first();
         Assert::assertEquals([
-            '_id'   => '58745c13ad585',
+            '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
             'email' => 'a@site.com',
             'name'  => 'A',
             'score' => 80,
             'other' => [
-                '_id'   => '58745c13ad585',
+                '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                 'email' => 'a@site.com',
                 'name'  => 'A',
                 'score' => 80,
@@ -550,17 +588,20 @@ class CollectionTest extends TestCase
         ], $result);
     }
 
+    /**
+     * @throws TypeException
+     */
     public function testWithMany()
     {
         $result = $this->nodeq->withMany($this->nodeq, 'other', 'email', '=', 'email')->first();
         Assert::assertEquals([
-            '_id'   => '58745c13ad585',
+            '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
             'email' => 'a@site.com',
             'name'  => 'A',
             'score' => 80,
             'other' => [
                 [
-                    '_id'   => '58745c13ad585',
+                    '_id'   => '01K7A51H9EE1PSAQ3TW8897XTG',
                     'email' => 'a@site.com',
                     'name'  => 'A',
                     'score' => 80,
@@ -569,6 +610,9 @@ class CollectionTest extends TestCase
         ], $result);
     }
 
+    /**
+     * @throws TypeException
+     */
     public function testSelectAs()
     {
         $result = $this->nodeq->query()->withOne($this->nodeq, 'other', 'email', '=', 'email')->first([
@@ -582,32 +626,10 @@ class CollectionTest extends TestCase
         ], $result);
     }
 
-    public function testMoreEntropy()
-    {
-        $db = new Collection($this->filepath, [
-            'more_entropy' => true,
-        ]);
-
-        $data = $db->insert([
-            'label' => 'Test more entropy',
-        ]);
-
-        Assert::assertEquals(23, strlen($data['_id']));
-    }
-
-    public function testKeyPrefix()
-    {
-        $db = new Collection($this->filepath, [
-            'key_prefix' => 'foobar',
-        ]);
-
-        $data = $db->insert([
-            'label' => 'Test key prefix',
-        ]);
-
-        Assert::assertEquals('foobar', substr($data['_id'], 0, 6));
-    }
-
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function testMacro()
     {
         // delete current db
@@ -657,9 +679,13 @@ class CollectionTest extends TestCase
         Assert::assertEquals('one0', $result2[9]['number']);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function testGlobalMacro()
     {
-        NodeQ::macro('replace', function ($query, $key, array $replacers) {
+        Node::macro('replace', function ($query, $key, array $replacers) {
             $keys = (array) $key;
 
             return $query->map(function ($item) use ($keys, $replacers) {
@@ -673,7 +699,7 @@ class CollectionTest extends TestCase
         });
 
         $this->tearDown();
-        $db = NodeQ::open($this->filepath, ['file_extension' => '.json']);
+        $db = Node::open($this->filepath, ['file_extension' => '.json']);
 
         // Insert items
         foreach (range(1, 10) as $n) {

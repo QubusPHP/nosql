@@ -41,13 +41,13 @@ use function strtolower;
 
 class Query
 {
-    public const TYPE_GET = 'get';
-    public const TYPE_INSERT = 'insert';
-    public const TYPE_UPDATE = 'update';
-    public const TYPE_DELETE = 'delete';
-    public const TYPE_SAVE = 'save';
+    public const string TYPE_GET = 'get';
+    public const string TYPE_INSERT = 'insert';
+    public const string TYPE_UPDATE = 'update';
+    public const string TYPE_DELETE = 'delete';
+    public const string TYPE_SAVE = 'save';
 
-    protected Collection $collection;
+    protected ?Collection $collection = null;
 
     /** @var array $pipes */
     protected array $pipes = [];
@@ -73,7 +73,7 @@ class Query
      * @param mixed ...$filter
      * @return self
      */
-    public function where($filter): static
+    public function where(mixed $filter): static
     {
         $args = func_get_args();
         array_unshift($args, 'AND');
@@ -87,7 +87,7 @@ class Query
      * @param mixed ...$filter
      * @return self
      */
-    public function orWhere($filter): static
+    public function orWhere(mixed $filter): static
     {
         $args = func_get_args();
         array_unshift($args, 'OR');
@@ -307,7 +307,7 @@ class Query
         return $sum;
     }
 
-    public function avg($key): mixed
+    public function avg($key): int|float
     {
         $sum = 0;
         $count = 0;
@@ -365,7 +365,9 @@ class Query
     protected function addWhere($type, $filter)
     {
         if ($filter instanceof Closure) {
-            return $this->addFilter($filter, $type);
+            $this->addFilter($filter, $type);
+
+            return;
         }
 
         $args = func_get_args();
@@ -446,7 +448,7 @@ class Query
     {
         $lastPipe = $this->getLastPipe();
         if (false === $lastPipe instanceof FilterPipe) {
-            $pipe = new FilterPipe($this);
+            $pipe = new FilterPipe();
             $this->addPipe(pipe: $pipe);
         } else {
             $pipe = $lastPipe;
@@ -464,7 +466,7 @@ class Query
     {
         $lastPipe = $this->getLastPipe();
         if (false === $lastPipe instanceof MapperPipe) {
-            $pipe = new MapperPipe($this);
+            $pipe = new MapperPipe();
             $this->addPipe(pipe: $pipe);
         } else {
             $pipe = $lastPipe;
