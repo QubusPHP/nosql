@@ -135,6 +135,11 @@ class Collection
     public function commit(): bool|int
     {
         $this->transactionMode = false;
+
+        if ($this->transactionData === null) {
+            return true;
+        }
+
         return $this->save(data: $this->transactionData);
     }
 
