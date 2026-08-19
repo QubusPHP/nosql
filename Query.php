@@ -38,6 +38,7 @@ use function min;
 use function preg_match;
 use function sprintf;
 use function strtolower;
+use function trim;
 
 class Query
 {
@@ -95,10 +96,24 @@ class Query
         return $this;
     }
 
+    public function filter(Closure $filter): static
+    {
+        $this->addFilter(filter: $filter);
+        return $this;
+    }
+
     public function map(Closure $mapper): static
     {
         $this->addMapper($mapper);
         return $this;
+    }
+
+    /**
+     * @throws TypeException
+     */
+    public function sort(Closure $value, string $asc = 'asc'): static
+    {
+        return $this->sortBy(key: $value, asc: $asc);
     }
 
     public function select(array $columns): static
@@ -119,9 +134,7 @@ class Query
 
         return $this->map(mapper: function ($row) use ($resolvedColumns, $keyAliases) {
             foreach ($resolvedColumns as $col => $keyAlias) {
-                if (! isset($row[$keyAlias])) {
-                    $row[$keyAlias] = $row[$col];
-                }
+                $row[$keyAlias] = $row[$col];
             }
 
             foreach ($row->toArray() as $col => $value) {
@@ -152,11 +165,9 @@ class Query
         string $operator = '=',
         string $thisKey = '_id'
     ): static {
-        if (false === $relation instanceof Query && false === $relation instanceof Collection) {
-            throw new TypeException(message: 'Relation must be instanceof Query or Collection.', code: 1);
-        }
         return $this->map(mapper: function ($row) use ($relation, $as, $otherKey, $operator, $thisKey) {
-            $otherData = $relation->where($otherKey, $operator, $row[$thisKey])->first();
+            $query = $relation instanceof Collection ? $relation->query() : clone $relation;
+            $otherData = $query->where($otherKey, $operator, $row[$thisKey])->first();
             $row[$as] = $otherData;
             return $row;
         });
@@ -180,11 +191,9 @@ class Query
         string $operator = '=',
         string $thisKey = '_id'
     ): static {
-        if (false !== $relation instanceof Query && false === $relation instanceof Collection) {
-            throw new TypeException(message: 'Relation must be instanceof Query or Collection.', code: 1);
-        }
         return $this->map(function ($row) use ($relation, $as, $otherKey, $operator, $thisKey) {
-            $otherData = $relation->where($otherKey, $operator, $row[$thisKey])->get();
+            $query = $relation instanceof Collection ? $relation->query() : clone $relation;
+            $otherData = $query->where($otherKey, $operator, $row[$thisKey])->get();
             $row[$as] = $otherData;
             return $row;
         });
@@ -238,17 +247,16 @@ class Query
      *
      * @param array $select
      * @return mixed
+     * @throws InvalidJsonException
+     * @throws TypeException
      */
     public function get(array $select = []): mixed
     {
         if (! empty($select)) {
             $this->select(columns: $select);
         }
-        try {
-            return $this->execute(type: self::TYPE_GET);
-        } catch (TypeException | InvalidJsonException $e) {
-            die($e->getMessage());
-        }
+
+        return $this->execute(type: self::TYPE_GET);
     }
 
     /**
@@ -258,6 +266,8 @@ class Query
      *
      * @param array $select
      * @return mixed
+     * @throws InvalidJsonException
+     * @throws TypeException
      */
     public function first(array $select = []): mixed
     {
@@ -292,11 +302,19 @@ class Query
         return $this->execute(type: self::TYPE_SAVE);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function count(): int
     {
         return count($this->get());
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function sum($key): mixed
     {
         $sum = 0;
@@ -307,6 +325,10 @@ class Query
         return $sum;
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function avg($key): int|float
     {
         $sum = 0;
@@ -316,9 +338,13 @@ class Query
             $sum += $data[$key];
             $count++;
         }
-        return $sum / $count;
+        return 0 === $count ? 0 : $sum / $count;
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function lists(string $key, mixed $resultKey = null): array
     {
         $result = [];
@@ -330,19 +356,33 @@ class Query
         return $result;
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function pluck(string $key, $resultKey = null): array
     {
         return $this->lists(key: $key, resultKey: $resultKey);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function min(string $key): mixed
     {
-        return min($this->lists(key: $key));
+        $values = $this->lists(key: $key);
+        return [] === $values ? null : min($values);
     }
 
+    /**
+     * @throws InvalidJsonException
+     * @throws TypeException
+     */
     public function max($key): mixed
     {
-        return max($this->lists(key: $key));
+        $values = $this->lists(key: $key);
+        return [] === $values ? null : max($values);
     }
 
     public function getPipes(): array
@@ -362,7 +402,7 @@ class Query
     /**
      * @throws TypeException
      */
-    protected function addWhere($type, $filter)
+    protected function addWhere($type, $filter): void
     {
         if ($filter instanceof Closure) {
             $this->addFilter($filter, $type);
@@ -380,10 +420,18 @@ class Query
             $value = $args[2];
         }
 
+        $operator = strtolower(string: trim(string: (string) $operator));
+
         switch ($operator) {
             case '=':
                 $filter = function ($row) use ($key, $value) {
                     return $row[$key] === $value;
+                };
+                break;
+            case '!=':
+            case '<>':
+                $filter = function ($row) use ($key, $value) {
+                    return $row[$key] !== $value;
                 };
                 break;
             case '>':
@@ -422,7 +470,7 @@ class Query
                 };
                 break;
             case 'between':
-                if (! is_array(value: $value) || count($value) < 2) {
+                if (! is_array(value: $value) || 2 !== count($value)) {
                     throw new TypeException(message: 'Query between need exactly 2 items in array.');
                 }
                 $filter = function ($row) use ($key, $value) {
@@ -430,15 +478,13 @@ class Query
                     return $v >= $value[0] && $v <= $value[1];
                 };
                 break;
-        }
-
-        if (! $filter) {
-            throw new TypeException(
-                sprintf(
-                    'Operator `%s` is not available.',
-                    $operator
-                )
-            );
+            default:
+                throw new TypeException(
+                    sprintf(
+                        'Operator `%s` is not available.',
+                        $operator
+                    )
+                );
         }
 
         $this->addFilter($filter, $type);
@@ -477,6 +523,7 @@ class Query
 
         $newMapper = function ($row) use ($mapper, $keyId, $keyOldId) {
             $row = new ArrayExtra(items: $row);
+            $originalId = $row[$keyId];
             $result = $mapper($row);
 
             if (is_array(value: $result)) {
@@ -488,8 +535,8 @@ class Query
             }
 
             if (is_array(value: $new) && isset($new[$keyId])) {
-                if ($row[$keyId] !== $new[$keyId]) {
-                    $new[$keyOldId] = $row[$keyId];
+                if ($originalId !== $new[$keyId]) {
+                    $new[$keyOldId] = $originalId;
                 }
             }
 
@@ -526,6 +573,13 @@ class Query
     protected function getLastPipe()
     {
         return ! empty($this->pipes) ? $this->pipes[count($this->pipes) - 1] : null;
+    }
+
+    public function __clone(): void
+    {
+        foreach ($this->pipes as $key => $pipe) {
+            $this->pipes[$key] = clone $pipe;
+        }
     }
 
     /**

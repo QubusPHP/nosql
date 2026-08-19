@@ -1,18 +1,21 @@
-# NoSQL Component
+# Qubus NoSQL
 
-NoSQL is a flat file Database with a JSON storage format.
+Qubus NoSQL is a small, schemaless database library that stores collections in JSON files. It provides fluent filtering, sorting, projection, mapping, aggregation, relations, transactions, events, and macros without requiring a database server.
 
 ## Requirements
 
-* PHP 8.4+
+- PHP 8.4 or later
 
 ## Installation
 
-```bash
+```shell
 composer require qubus/nosql
 ```
 
-## More Info
+## License
 
-- [Documentation](https://docs.stalframework.com/no-sql/)
-- [Contributing](https://docs.stalframework.com/contributing/)
+Qubus NoSQL is released under the [MIT License](LICENSE.md).
+
+## More information
+
+- [Documentation](https://codefyphp.com/docs/digging-deeper/nosql/)

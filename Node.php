@@ -30,11 +30,13 @@ class Node
      */
     public static function open(string $file, array $options = []): Collection
     {
-        if (! isset(static::$collections[$file])) {
-            static::$collections[$file] = new Collection($file, $options);
+        $key = $file . ($options['file_extension'] ?? '.json');
+
+        if (! isset(static::$collections[$key])) {
+            static::$collections[$key] = new Collection($file, $options);
         }
 
-        $collection = static::$collections[$file];
+        $collection = static::$collections[$key];
 
         // Register macros
         foreach (static::$macros as $name => $callback) {
@@ -42,6 +44,14 @@ class Node
         }
 
         return $collection;
+    }
+
+    /**
+     * Remove all cached collection instances.
+     */
+    public static function clear(): void
+    {
+        static::$collections = [];
     }
 
     /**

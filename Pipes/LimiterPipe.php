@@ -14,11 +14,10 @@ declare(strict_types=1);
 namespace Qubus\NoSql\Pipes;
 
 use function array_slice;
-use function count;
 
 class LimiterPipe implements Pipe
 {
-    protected int $limit = 0;
+    protected ?int $limit = null;
     protected int $offset = 0;
 
     public function setLimit(int $limit): static
@@ -36,8 +35,11 @@ class LimiterPipe implements Pipe
 
     public function process(array $data): array
     {
-        $limit = (int) $this->limit ?: count($data);
-        $offset = (int) $this->offset;
-        return array_slice(array: $data, offset: $offset, length: $limit);
+        return array_slice(
+            array: $data,
+            offset: $this->offset,
+            length: $this->limit,
+            preserve_keys: true
+        );
     }
 }

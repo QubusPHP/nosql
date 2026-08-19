@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Qubus\NoSql;
 
 use ArrayAccess;
-use InvalidArgumentException;
 
 use function array_key_exists;
 use function array_shift;
@@ -93,9 +92,9 @@ class ArrayExtra implements ArrayAccess
     /**
      * Set an item on an array or object using dot notation.
      */
-    public static function arraySet(mixed &$target, array|string $key, mixed $value, bool $overwrite = true): mixed
+    public static function arraySet(mixed &$target, array|int|string $key, mixed $value, bool $overwrite = true): mixed
     {
-        $segments = is_array(value: $key) ? $key : explode(separator: '.', string: $key);
+        $segments = is_array(value: $key) ? $key : explode(separator: '.', string: (string) $key);
 
         if (($segment = array_shift($segments)) === '*') {
             if (! is_array(value: $target)) {
@@ -135,20 +134,20 @@ class ArrayExtra implements ArrayAccess
     }
 
     /**
-     * Remove item in array.
+     * Remove item in an array.
      *
      * @param array $array
-     * @param string $key
+     * @param int|string $key
      */
-    public static function arrayRemove(array &$array, string $key): void
+    public static function arrayRemove(array &$array, int|string $key): void
     {
-        $keys = explode(separator: '.', string: $key);
+        $keys = explode(separator: '.', string: (string) $key);
 
         while (count($keys) > 1) {
             $key = array_shift($keys);
 
             if (! isset($array[$key]) || ! is_array(value: $array[$key])) {
-                $array[$key] = [];
+                return;
             }
 
             $array = &$array[$key];
@@ -181,10 +180,6 @@ class ArrayExtra implements ArrayAccess
      */
     protected function getArrayValue(ArrayExtra|array $value, string $message): array
     {
-        if (! is_array(value: $value) && false === $value instanceof ArrayExtra) {
-            throw new InvalidArgumentException(message: $message);
-        }
-
         return is_array(value: $value) ? $value : $value->toArray();
     }
 
@@ -200,6 +195,11 @@ class ArrayExtra implements ArrayAccess
 
     public function offsetSet(mixed $offset, mixed $value): void
     {
+        if (null === $offset) {
+            $this->items[] = $value;
+            return;
+        }
+
         $this->items = static::arraySet($this->items, $offset, $value, true);
     }
 

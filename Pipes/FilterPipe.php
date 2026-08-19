@@ -33,16 +33,21 @@ class FilterPipe implements Pipe
     {
         $filters = $this->filters;
         return array_filter(array: $data, callback: function ($row) use ($filters) {
-            $result = true;
+            $result = null;
             foreach ($filters as $i => $filter) {
                 [$filter, $type] = $filter;
+                if (null === $result) {
+                    $result = $filter($row);
+                    continue;
+                }
+
                 $result = match ($type) {
                     'and' => $result && $filter($row),
                     'or' => $result || $filter($row),
                     default => throw new TypeException(message: "Filter type must be 'AND' or 'OR'.", code: 1),
                 };
             }
-            return $result;
+            return $result ?? true;
         });
     }
 

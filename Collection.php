@@ -15,12 +15,15 @@ namespace Qubus\NoSql;
 
 use Closure;
 use Qubus\Exception\Data\TypeException;
-use Qubus\Exception\Exception;
 use Qubus\Exception\IO\FileSystem\DirectoryNotFoundException;
+use Qubus\Exception\IO\FileSystem\FileNotReadableException;
+use Qubus\Exception\IO\FileSystem\FileNotWritableException;
 use Qubus\NoSql\Exceptions\InvalidJsonException;
 use Qubus\NoSql\Exceptions\UndefinedMethodException;
 use Qubus\ValueObjects\Identity\Ulid;
+use JsonException;
 use stdClass;
+use Throwable;
 
 use function array_key_exists;
 use function array_map;
@@ -37,9 +40,9 @@ use function json_decode;
 use function json_encode;
 use function pathinfo;
 use function sprintf;
-use function uniqid;
 
 use const JSON_PRETTY_PRINT;
+use const JSON_THROW_ON_ERROR;
 use const LOCK_EX;
 
 class Collection
@@ -129,9 +132,16 @@ class Collection
 
     public function begin(): void
     {
+        if (! $this->isModeTransaction()) {
+            $this->transactionData = null;
+        }
+
         $this->transactionMode = true;
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function commit(): bool|int
     {
         $this->transactionMode = false;
@@ -140,7 +150,10 @@ class Collection
             return true;
         }
 
-        return $this->save(data: $this->transactionData);
+        $data = $this->transactionData;
+        $this->transactionData = null;
+
+        return $this->save(data: $data);
     }
 
     public function rollback(): void
@@ -150,7 +163,7 @@ class Collection
     }
 
     /**
-     * @throws Exception
+     * @throws Throwable
      */
     public function transaction(callable $callback, mixed $that = null, mixed $default = null): mixed
     {
@@ -162,21 +175,22 @@ class Collection
             return $callback($that);
         }
 
-        $result = $default;
-
         $this->begin();
 
         try {
             $result = $callback($that);
             $this->commit();
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             $this->rollback();
-            throw new Exception();
+            throw $ex;
         }
 
         return $result;
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function truncate(): bool|int
     {
         return $this->persists([]);
@@ -210,7 +224,7 @@ class Collection
      */
     public function loadData(): mixed
     {
-        if ($this->isModeTransaction() && ! empty($this->transactionData)) {
+        if ($this->isModeTransaction() && $this->transactionData !== null) {
             return $this->transactionData;
         }
 
@@ -218,11 +232,28 @@ class Collection
             $data = [];
         } else {
             $content = file_get_contents(filename: $this->filepath);
-            $data = json_decode(json: $content, associative: true);
-            if (null === $data) {
+            if (false === $content) {
+                throw new FileNotReadableException(
+                    message: sprintf('Cannot read database file `%s`.', $this->filepath)
+                );
+            }
+
+            try {
+                $data = json_decode(json: $content, associative: true, flags: JSON_THROW_ON_ERROR);
+            } catch (JsonException $exception) {
                 throw new InvalidJsonException(
                     message: sprintf(
                         'Failed to load data. File `%s` contains invalid JSON format.',
+                        $this->filepath
+                    ),
+                    previous: $exception
+                );
+            }
+
+            if (! is_array($data)) {
+                throw new InvalidJsonException(
+                    message: sprintf(
+                        'Failed to load data. File `%s` must contain a JSON object or array.',
                         $this->filepath
                     )
                 );
@@ -252,7 +283,7 @@ class Collection
         return call_user_func_array(callback: [$this->query(), 'where'], args: func_get_args());
     }
 
-    public function filter(Closure $closure): mixed
+    public function filter(Closure $closure): Query
     {
         return $this->query()->filter($closure);
     }
@@ -265,14 +296,14 @@ class Collection
     /**
      * @throws TypeException
      */
-    public function sortBy(string $key, string $asc = 'asc'): Query
+    public function sortBy(string|Closure $key, string $asc = 'asc'): Query
     {
         return $this->query()->sortBy(key: $key, asc: $asc);
     }
 
-    public function sort(Closure $value): mixed
+    public function sort(Closure $value, string $asc = 'asc'): Query
     {
-        return $this->query()->sort($value);
+        return $this->query()->sort(value: $value, asc: $asc);
     }
 
     public function skip(int $offset): Query
@@ -347,11 +378,24 @@ class Collection
      */
     public function inserts(array $listData): bool|int
     {
-        $this->begin();
-        foreach ($listData as $data) {
-            $this->insert($data);
+        $ownsTransaction = ! $this->isModeTransaction();
+        if ($ownsTransaction) {
+            $this->begin();
         }
-        return $this->commit();
+
+        try {
+            foreach ($listData as $data) {
+                $this->insert($data);
+            }
+
+            return $ownsTransaction ? $this->commit() : true;
+        } catch (Throwable $exception) {
+            if ($ownsTransaction) {
+                $this->rollback();
+            }
+
+            throw $exception;
+        }
     }
 
     /**
@@ -435,6 +479,7 @@ class Collection
             Query::TYPE_INSERT => $this->executeInsert($query, $arg),
             Query::TYPE_UPDATE => $this->executeUpdate($query, $arg),
             Query::TYPE_DELETE => $this->executeDelete($query),
+            default => throw new TypeException(message: sprintf('Query type `%s` is not available.', $type)),
         };
     }
 
@@ -452,25 +497,28 @@ class Collection
 
     /**
      * @throws InvalidJsonException
-     * @throws TypeException
      */
     protected function executeInsert(Query $query, array $new = []): ?array
     {
         $data = $this->loadData();
         $key = $new[static::KEY_ID] ?? $this->generateKey();
 
-        $this->lastInsertId = Ulid::fromNative($key)->toNative();
-
         $newExtra = new ArrayExtra([]);
         $newExtra->merge(value: $new);
 
         $args = [$newExtra];
         $this->trigger(static::INSERTING, $args);
-        $data[$key] = array_merge([
+        $record = array_merge([
             static::KEY_ID => $key,
         ], $args[0]->toArray());
+        $key = $record[static::KEY_ID];
+        $insertId = Ulid::fromNative($key)->toNative();
+        $data[$key] = $record;
 
         $success = $this->persists(data: $data);
+        if ($success) {
+            $this->lastInsertId = $insertId;
+        }
 
         $args = [$data[$key]];
         $this->trigger(static::INSERTED, $args);
@@ -579,12 +627,13 @@ class Collection
             // update ID if there is '_old' key
             if (isset($row[static::KEY_OLD_ID])) {
                 unset($data[$row[static::KEY_OLD_ID]]);
+                unset($row[static::KEY_OLD_ID]);
             }
             // keep ID if there is no '_id'
             if (! isset($row[static::KEY_ID])) {
                 $row[static::KEY_ID] = $key;
             }
-            $data[$key] = $row;
+            $data[$row[static::KEY_ID]] = $row;
         }
 
         $success = $this->persists(data: $data);
@@ -592,6 +641,9 @@ class Collection
         return $success ? $count : 0;
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     public function persists(array $data): bool|int
     {
         if ($this->resolver) {
@@ -601,6 +653,9 @@ class Collection
         return $this->save(data: $data);
     }
 
+    /**
+     * @throws InvalidJsonException
+     */
     protected function save(array $data): bool|int
     {
         if ($this->isModeTransaction()) {
@@ -611,7 +666,17 @@ class Collection
                 $data = new stdClass();
             }
 
-            $json = json_encode(value: $data, flags: $this->options['save_format']);
+            try {
+                $json = json_encode(
+                    value: $data,
+                    flags: $this->options['save_format'] | JSON_THROW_ON_ERROR
+                );
+            } catch (JsonException $exception) {
+                throw new InvalidJsonException(
+                    message: sprintf('Failed to encode data for database file `%s`.', $this->filepath),
+                    previous: $exception
+                );
+            }
 
             $filepath = $this->filepath;
             $pathinfo = pathinfo(path: $filepath);
@@ -625,7 +690,14 @@ class Collection
                 );
             }
 
-            return file_put_contents(filename: $filepath, data: $json, flags: LOCK_EX);
+            $result = file_put_contents(filename: $filepath, data: $json, flags: LOCK_EX);
+            if (false === $result) {
+                throw new FileNotWritableException(
+                    message: sprintf('Cannot write database file `%s`.', $filepath)
+                );
+            }
+
+            return $result;
         }
     }
 
